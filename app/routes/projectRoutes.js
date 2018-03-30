@@ -12,6 +12,10 @@ module.exports = function(app, db) {
             if(err) {
                 res.send(dbError)
             } else if(item) {
+                if(item.winner) {
+                    res.send({status: 200, data: item})
+                    return
+                }
                 db.collection('lowestBids').findOne({projectId: id}, (err, lowestBid) => {
                     if(lowestBid) {
                         //if(no winner && date > bidEnd) -> append winner: lowestBid
@@ -27,7 +31,7 @@ module.exports = function(app, db) {
                         }
                         item = { ...item, lowestBid}
                     }
-                    console.log(item);
+                    // console.log(item);
                     res.send({status: 200, data: item})
                 })
             } else {
@@ -66,7 +70,7 @@ module.exports = function(app, db) {
     app.post('/projects', (req, res) => {
         const { projectName, sellerId, description, bidStart, bidEnd, maxAmount } = req.body
         // if (projectName && sellerId && description, bidStart && bidEnd && maxAmount)
-        const project = { projectName, sellerId, description, bidStart, bidEnd, maxAmount, winner: null }
+        const project = { projectName, sellerId, description, bidStart, bidEnd, maxAmount, winner: 0 }
         db.collection('projects').insert(project, (err, result) => {
             if(err) {
                 res.send(dbError)

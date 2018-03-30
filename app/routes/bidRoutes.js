@@ -24,9 +24,11 @@ module.exports = function(app, db) {
     app.get('/projects/:id/bids', (req, res) => {
         const id = req.params.id
         if(!validIdLength.includes(id.length)) res.send(projectIdError)
+        const offset = req.query.offset ? Number(req.query.offset) : 0
+        const limit = req.query.limit ? Number(req.query.limit): 25
         const details = {'projectId': id}
 
-        db.collection('bids').find(details).toArray((err, item) => {
+        db.collection('bids').find(details).skip(offset).limit(limit).toArray((err, item) => {
             if(err) {
                 res.send(dbError)
                 return
@@ -35,20 +37,24 @@ module.exports = function(app, db) {
             }
         })
     })
+    
+    app.put('/projects/:id/bids/:bidId', (req, res) => {
+        const { id, bidId } = req.params
 
-    // app.put('/projects/:id/bids/:bidId', (req, res) => {
-    //     const id = req.params.id
-    //     const { name, deadline } = req.body
-    //     const project = { name, deadline }
-    //     const details = {'_id': new ObjectID(id)}
-    //     db.collection('projects').update(details, project, (err, item) => {
-    //         if(err) {
-    //             res.send(dbError)
-    //         } else {
-    //             res.send(item)
-    //         }
-    //     })
-    // })
+        if(!validIdLength.includes(id.length)) res.send(projectIdError)
+        if(!validIdLength.includes(bidId.length)) res.send(bidtIdError)
+        const { bidAmount } = req.body
+        const details = { _id: new ObjectID(bidId), projectId: id }
+        db.collection('bids').update(details, {$set: {bidAmount}}, (err, item) => {
+            if(err) {
+                res.send(dbError)
+            } else if(item.result.n) {
+                res.send({status: 200, message: `Bid ${bidId} Updated Successfully`})
+            } else {
+                res.send(bidNotFound)
+            }
+        })
+    })
 
     app.post('/projects/:id/bids', (req, res) => {
         const id = req.params.id
@@ -83,7 +89,7 @@ module.exports = function(app, db) {
                         if(err) {
                             res.send(dbError)
                         } else {
-                            const bidId = 555//result.insertedIds[0]
+                            const bidId = result.insertedIds[0]
                             db.collection('lowestBids').findOne({projectId: id}, (err, lowestBid) => {
                                 if(lowestBid) {
                                     const shouldUpdateLowestBid = !lowestBid.bidAmount || (lowestBid.bidAmount > newBid.bidAmount)
@@ -91,9 +97,6 @@ module.exports = function(app, db) {
                                             db.collection('lowestBids').update({projectId: id}, { buyerId, bidAmount, bidId, projectId: id }, (err, item) => {
                                             if(err) {
                                                 res.send(dbError)
-                                            } else {
-                                                // console.log('item',item);
-                                                // console.log('resu', result);
                                             }
                                         })
                                     }
@@ -102,8 +105,6 @@ module.exports = function(app, db) {
                                     db.collection('lowestBids').insert({ buyerId, bidAmount, bidId, projectId: id })
                                 }
                             })
-
-
                             res.send({'status': '201 Created', 'bidId': result.insertedIds[0]})
                         }
                     })
